@@ -1,0 +1,70 @@
+services:
+  web:
+    build:
+      context: ./business
+      dockerfile: Dockerfile
+    image: bs:latest
+    container_name: fastapi_web_server
+    ports:
+      - "8000:8000"
+    environment:
+      - INFLUXDB_URL=http://influxdb:8086
+      - INFLUXDB_TOKEN=my-super-secret-token
+      - INFLUXDB_ORG=myorg
+      - INFLUXDB_BUCKET=logs
+      - ALERTS_DIR=/app/error_reports
+    volumes:
+      - ./error_reports:/app/error_reports
+    depends_on:
+      - influxdb
+
+  worker:
+    build:
+      context: ./business
+      dockerfile: Dockerfile
+    image: my-celery-worker-app:latest
+    container_name: celery_worker
+    command: celery -A my_celery worker --loglevel=info
+    environment:
+      - INFLUXDB_URL=http://influxdb:8086
+      - INFLUXDB_TOKEN=my-super-secret-token
+      - INFLUXDB_ORG=myorg
+      - INFLUXDB_BUCKET=logs
+      - OPENROUTER_API_KEY=your-api-key-here
+    depends_on:
+      - redis
+      - influxdb
+  redis:
+    image: redis:7.2
+    container_name: redis
+    ports:
+      - "6379:6379"
+  
+  scheduler:
+    build:
+      context: ./scheduler
+      dockerfile: Dockerfile.add
+    image: my-scheduler-app-compose:latest
+    container_name: scheduler
+    environment:
+      TARGET_URL: "http://web:8000/health" 
+    depends_on:
+      - web
+
+  influxdb:
+    image: influxdb:2.7
+    container_name: influxdb
+    ports:
+      - "8086:8086"
+    environment:
+      - DOCKER_INFLUXDB_INIT_MODE=setup
+      - DOCKER_INFLUXDB_INIT_USERNAME=admin
+      - DOCKER_INFLUXDB_INIT_PASSWORD=admin123
+      - DOCKER_INFLUXDB_INIT_ORG=myorg
+      - DOCKER_INFLUXDB_INIT_BUCKET=logs
+      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=my-super-secret-token
+    volumes:
+      - influxdb-data:/var/lib/influxdb2
+
+volumes:
+  influxdb-data:

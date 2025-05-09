@@ -1,0 +1,6 @@
+fastapi
+uvicorn[standard]
+requests
+influxdb-client
+celery[redis]
+redis
